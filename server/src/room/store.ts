@@ -5,6 +5,9 @@ export const HARD_TTL_SECONDS = 10800 // 3 hours
 export const MATCHING_WINDOW_SECONDS = 900 // 15 min
 export const FLAG_HIDE_THRESHOLD = 3
 
+export const ALLOWED_REACTIONS = ['😕', '🔥', '👍', '🤔', '🙌'] as const
+export type AllowedReaction = (typeof ALLOWED_REACTIONS)[number]
+
 export type PostType = 'question' | 'note'
 export type RoomState = 'live' | 'matching' | 'dead'
 
@@ -247,6 +250,19 @@ export async function setRoomState(
   state: RoomState,
 ): Promise<void> {
   await redis.hset(kMeta(roomKey), 'state', state)
+}
+
+export async function getReactionCounts(
+  redis: Redis,
+  roomKey: string,
+  postId: string,
+): Promise<Record<string, number>> {
+  const raw = await redis.hgetall(kReactions(roomKey, postId))
+  const counts: Record<string, number> = {}
+  for (const emoji of Object.values(raw)) {
+    counts[emoji] = (counts[emoji] ?? 0) + 1
+  }
+  return counts
 }
 
 export async function isAlive(

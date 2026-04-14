@@ -1,7 +1,9 @@
 import http from 'node:http'
+import { randomUUID } from 'node:crypto'
 import express from 'express'
 import cors from 'cors'
 import { Server, type Socket } from 'socket.io'
+import { z, ZodError } from 'zod'
 import { env } from './env.js'
 import { supabaseAdmin } from './supabaseAdmin.js'
 import { redis } from './redis.js'
@@ -10,8 +12,33 @@ import {
   createOrTouchRoom,
   addMember,
   removeMember,
+  addPost,
+  addReaction,
+  flagPost,
   getPublicFeed,
+  getReactionCounts,
+  getRoomState,
+  ALLOWED_REACTIONS,
+  FLAG_HIDE_THRESHOLD,
+  type PublicPost,
 } from './room/store.js'
+
+const postNewSchema = z.object({
+  type: z.enum(['question', 'note']),
+  text: z
+    .string()
+    .transform((s) => s.trim())
+    .pipe(z.string().min(1).max(280)),
+})
+
+const reactionAddSchema = z.object({
+  postId: z.string().min(1),
+  emoji: z.enum(ALLOWED_REACTIONS),
+})
+
+const postFlagSchema = z.object({
+  postId: z.string().min(1),
+})
 
 interface SocketData {
   userId: string
@@ -98,6 +125,89 @@ export function createServer(): {
 
     const feed = await getPublicFeed(redis, rk)
     socket.emit('room:state', { feed, meta: { state: 'live' } })
+
+    socket.on('post:new', async (payload: unknown) => {
+      try {
+        const { type, text } = postNewSchema.parse(payload)
+        const state = await getRoomState(redis, rk)
+        if (state !== 'live') {
+          socket.emit('error', { code: 'room_not_live' })
+          return
+        }
+        const postId = randomUUID()
+        const createdAt = Date.now()
+        await addPost(redis, rk, {
+          id: postId,
+          authorUserId: userId,
+          type,
+          text,
+          createdAt,
+        })
+        const publicPost: PublicPost = {
+          postId,
+          type,
+          text,
+          reactions: {},
+          flagCount: 0,
+          createdAt,
+        }
+        io.to(rk).emit('post:new', publicPost)
+        socket.emit('post:ack', { postId })
+      } catch (err) {
+        if (err instanceof ZodError) {
+          socket.emit('error', { code: 'invalid_payload', event: 'post:new' })
+          return
+        }
+        console.error('post:new error', err)
+        socket.emit('error', { code: 'server_error' })
+      }
+    })
+
+    socket.on('reaction:add', async (payload: unknown) => {
+      try {
+        const { postId, emoji } = reactionAddSchema.parse(payload)
+        const state = await getRoomState(redis, rk)
+        if (state !== 'live') {
+          socket.emit('error', { code: 'room_not_live' })
+          return
+        }
+        await addReaction(redis, rk, postId, userId, emoji)
+        const reactions = await getReactionCounts(redis, rk, postId)
+        io.to(rk).emit('reaction:update', { postId, reactions })
+      } catch (err) {
+        if (err instanceof ZodError) {
+          socket.emit('error', {
+            code: 'invalid_payload',
+            event: 'reaction:add',
+          })
+          return
+        }
+        console.error('reaction:add error', err)
+        socket.emit('error', { code: 'server_error' })
+      }
+    })
+
+    socket.on('post:flag', async (payload: unknown) => {
+      try {
+        const { postId } = postFlagSchema.parse(payload)
+        const state = await getRoomState(redis, rk)
+        if (state !== 'live') {
+          socket.emit('error', { code: 'room_not_live' })
+          return
+        }
+        const count = await flagPost(redis, rk, postId, userId)
+        if (count >= FLAG_HIDE_THRESHOLD) {
+          io.to(rk).emit('post:hidden', { postId })
+        }
+      } catch (err) {
+        if (err instanceof ZodError) {
+          socket.emit('error', { code: 'invalid_payload', event: 'post:flag' })
+          return
+        }
+        console.error('post:flag error', err)
+        socket.emit('error', { code: 'server_error' })
+      }
+    })
 
     socket.on('disconnect', async () => {
       await removeMember(redis, rk, userId)
