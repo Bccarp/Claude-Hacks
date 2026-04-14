@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
-import Redis from 'ioredis'
+import { Redis } from 'ioredis'
 import {
   addMember,
   addPost,

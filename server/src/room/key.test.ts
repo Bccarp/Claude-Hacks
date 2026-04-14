@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { gridCell, roomKey, authorHash } from './key'
+import { gridCell, roomKey, authorHash } from './key.js'
 
 describe('gridCell', () => {
   it('snaps lat/lng into a stable ~15m bucket', () => {

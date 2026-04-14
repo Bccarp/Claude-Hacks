@@ -1,3 +1,7 @@
-// Placeholder entrypoint for the Proximate server.
-// The real server (Express + Socket.io) is implemented in Task 3.
-console.log("server starting");
+import { createServer } from './server.js'
+import { env } from './env.js'
+
+const { httpServer } = createServer()
+httpServer.listen(env.PORT, () => {
+  console.log(`proximate server listening on :${env.PORT}`)
+})
