@@ -22,6 +22,7 @@ import {
   FLAG_HIDE_THRESHOLD,
   type PublicPost,
 } from './room/store.js'
+import { startLifecycleTicker } from './room/lifecycle.js'
 
 const postNewSchema = z.object({
   type: z.enum(['question', 'note']),
@@ -48,6 +49,7 @@ interface SocketData {
 export function createServer(): {
   httpServer: http.Server
   io: Server
+  stopTicker: () => void
 } {
   const app = express()
   app.use(cors({ origin: env.CLIENT_ORIGIN, credentials: true }))
@@ -214,5 +216,14 @@ export function createServer(): {
     })
   })
 
-  return { httpServer, io }
+  const stopTicker = startLifecycleTicker({
+    io,
+    redis,
+    runMatching: async (roomKey: string) => {
+      // Task 6 will replace this with the real Claude clustering job.
+      console.log('runMatching stub called for', roomKey)
+    },
+  })
+
+  return { httpServer, io, stopTicker }
 }
