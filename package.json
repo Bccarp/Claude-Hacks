@@ -1,0 +1,9 @@
+{
+  "name": "proximate",
+  "private": true,
+  "workspaces": ["server", "client"],
+  "scripts": {
+    "dev:server": "npm -w server run dev",
+    "dev:client": "npm -w client run dev"
+  }
+}
