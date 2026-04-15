@@ -9,33 +9,14 @@ import { AuthProvider, useAuth } from "./lib/auth";
 import Login from "./pages/Login";
 import OnboardProfile from "./pages/OnboardProfile";
 import Room from "./pages/Room";
+import Matches from "./pages/Matches";
+import MatchDetail from "./pages/MatchDetail";
+import RevealScreen from "./pages/RevealScreen";
 
 function Loading() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">
       <div className="text-slate-400">Loading…</div>
-    </div>
-  );
-}
-
-function MatchesPlaceholder() {
-  const { signOut } = useAuth();
-  return (
-    <div className="min-h-screen bg-slate-900 text-white p-8">
-      <div className="max-w-xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold">Matches</h1>
-          <button
-            onClick={signOut}
-            className="text-slate-400 hover:text-white text-sm"
-          >
-            Sign out
-          </button>
-        </div>
-        <p className="text-slate-400 text-sm">
-          Matches list is coming in the next task.
-        </p>
-      </div>
     </div>
   );
 }
@@ -99,7 +80,27 @@ export default function App() {
             element={
               <RequireAuth>
                 <RequireProfile>
-                  <MatchesPlaceholder />
+                  <Matches />
+                </RequireProfile>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/matches/:matchId"
+            element={
+              <RequireAuth>
+                <RequireProfile>
+                  <MatchDetail />
+                </RequireProfile>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/matches/:matchId/reveal"
+            element={
+              <RequireAuth>
+                <RequireProfile>
+                  <RevealScreen />
                 </RequireProfile>
               </RequireAuth>
             }
