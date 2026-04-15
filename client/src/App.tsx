@@ -8,6 +8,7 @@ import {
 import { AuthProvider, useAuth } from "./lib/auth";
 import Login from "./pages/Login";
 import OnboardProfile from "./pages/OnboardProfile";
+import Room from "./pages/Room";
 
 function Loading() {
   return (
@@ -17,13 +18,13 @@ function Loading() {
   );
 }
 
-function Home() {
-  const { profile, signOut } = useAuth();
+function MatchesPlaceholder() {
+  const { signOut } = useAuth();
   return (
     <div className="min-h-screen bg-slate-900 text-white p-8">
       <div className="max-w-xl mx-auto">
         <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold">Proximate</h1>
+          <h1 className="text-3xl font-bold">Matches</h1>
           <button
             onClick={signOut}
             className="text-slate-400 hover:text-white text-sm"
@@ -31,15 +32,8 @@ function Home() {
             Sign out
           </button>
         </div>
-        <p className="text-slate-300">
-          Welcome, {profile?.display_name}. You appear as{" "}
-          <span className="font-semibold capitalize">
-            {profile?.avatar_color} {profile?.avatar_animal}
-          </span>
-          .
-        </p>
-        <p className="text-slate-400 mt-4 text-sm">
-          Room screen and matches list are coming in the next tasks.
+        <p className="text-slate-400 text-sm">
+          Matches list is coming in the next task.
         </p>
       </div>
     </div>
@@ -95,7 +89,17 @@ export default function App() {
             element={
               <RequireAuth>
                 <RequireProfile>
-                  <Home />
+                  <Room />
+                </RequireProfile>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/matches"
+            element={
+              <RequireAuth>
+                <RequireProfile>
+                  <MatchesPlaceholder />
                 </RequireProfile>
               </RequireAuth>
             }
