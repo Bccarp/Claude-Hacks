@@ -305,3 +305,35 @@ server/
   supabase/
     schema.sql           Tables + indexes + RLS
 ```
+
+## Feature summary
+
+- **One-shot signup** — Single form collects name, email, and password. The server provisions the Supabase auth user with `email_confirm: true` and creates the profile in the same request, so users land straight in a room. No verification emails.
+- **Password sign-in** — Returning users toggle to "Sign in" and authenticate with `signInWithPassword` directly against Supabase.
+- **Auto-generated identities** — Every new account is assigned a random animal + color (e.g. "teal fox") server-side, used as the public handle inside rooms until a match reveal.
+- **Proximity rooms** — Same ~15 m grid cell + same public IP auto-joins the same ephemeral room, with no discovery UI. Room keys are `sha256(cell || ip)`, so the server never stores raw coordinates.
+- **Code-based fallback rooms** — If geolocation is denied or unsupported, the client offers a 6-digit code form. Rooms keyed by `sha256("code" || code)` let people on different networks meet.
+- **Live anonymous feed** — Questions (1..280 chars) and Notes broadcast to everyone in the room in real time via Socket.io. Posts are Zod-validated on the server.
+- **Five-emoji reactions** — Each user can set exactly one of `😕 🔥 👍 🤔 🙌` per post; the server reconciles counts and broadcasts updates.
+- **Community moderation** — Any member can flag a post; three distinct flaggers hide it from the public feed.
+- **Automatic room lifecycle** — A 30 s interval ticker transitions rooms `live → matching → dead` based on idle TTL (30 min), hard TTL (3 h), and a 15-minute matching window.
+- **Claude-powered matching** — When a room closes, the server anonymizes posts and reactions behind 8-char hashes and asks `claude-opus-4-6` to cluster 2..5 compatible authors by topic + co-reaction. The hash↔userId map never leaves memory.
+- **Persistent match candidates** — Clusters are written to `match_candidates` with a 72 h TTL and surface on `/matches` for every member.
+- **Bilateral reveal** — Two users must each tap "I'm interested" on the other before the server returns either's display name and contact handle. Unilateral interest yields `202 pending`.
+- **Match dismissal** — A member can `DELETE` a match to clear it from their list (cascade-deletes any reveal requests).
+- **RLS-protected data** — `profiles` is readable by any authenticated user but writable only to its owner; `match_candidates` and `reveal_requests` have RLS enabled with no policies, so only the server's service-role key can touch them.
+- **Privacy by construction** — Claude only ever sees post text and 8-char author hashes; raw user IDs, emails, coordinates, and IPs never leave the server. Passwords live only in Supabase Auth.
+
+## How it works (plain English)
+
+You open Proximate and make an account with just a name, email, and password — no inbox confirmation, you're in.
+
+Your phone's location (or a shared 6-digit code) drops you into an **anonymous room** with anyone else in the same spot: a café, a lecture hall, a waiting area. You show up as something like "teal fox" — no photo, no name.
+
+Inside the room, anyone can post short **questions** or **notes**. Everyone sees them live. You can react with an emoji or flag things that don't belong.
+
+After the room goes quiet for a while, it **closes**. The app sends the anonymous posts (just the 8-character nicknames, never your real identity) to Claude, which reads the conversation and groups together people who seemed to click — people who asked about the same topic, reacted to each other, or cared about the same thing.
+
+Those groups show up in your **Matches** tab. You can tap a stranger's avatar to say "I'm interested." They get no notification. But if they tap yours back, the app **reveals** both of you to each other at the same time — real name, contact handle, done. If they never tap, neither of you ever finds out the other was interested.
+
+That's it: be in the same place, talk anonymously, and only exchange identities when both people agree.
