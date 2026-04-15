@@ -7,7 +7,6 @@ import {
 } from "react-router-dom";
 import { AuthProvider, useAuth } from "./lib/auth";
 import Login from "./pages/Login";
-import OnboardProfile from "./pages/OnboardProfile";
 import Room from "./pages/Room";
 import Matches from "./pages/Matches";
 import MatchDetail from "./pages/MatchDetail";
@@ -27,13 +26,6 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   if (loading) return <Loading />;
   if (!session)
     return <Navigate to="/login" replace state={{ from: location }} />;
-  return <>{children}</>;
-}
-
-function RequireProfile({ children }: { children: React.ReactNode }) {
-  const { profile, loading } = useAuth();
-  if (loading) return <Loading />;
-  if (!profile) return <Navigate to="/onboard" replace />;
   return <>{children}</>;
 }
 
@@ -58,20 +50,10 @@ export default function App() {
             }
           />
           <Route
-            path="/onboard"
-            element={
-              <RequireAuth>
-                <OnboardProfile />
-              </RequireAuth>
-            }
-          />
-          <Route
             path="/"
             element={
               <RequireAuth>
-                <RequireProfile>
-                  <Room />
-                </RequireProfile>
+                <Room />
               </RequireAuth>
             }
           />
@@ -79,9 +61,7 @@ export default function App() {
             path="/matches"
             element={
               <RequireAuth>
-                <RequireProfile>
-                  <Matches />
-                </RequireProfile>
+                <Matches />
               </RequireAuth>
             }
           />
@@ -89,9 +69,7 @@ export default function App() {
             path="/matches/:matchId"
             element={
               <RequireAuth>
-                <RequireProfile>
-                  <MatchDetail />
-                </RequireProfile>
+                <MatchDetail />
               </RequireAuth>
             }
           />
@@ -99,9 +77,7 @@ export default function App() {
             path="/matches/:matchId/reveal"
             element={
               <RequireAuth>
-                <RequireProfile>
-                  <RevealScreen />
-                </RequireProfile>
+                <RevealScreen />
               </RequireAuth>
             }
           />

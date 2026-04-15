@@ -28,6 +28,7 @@ import { runMatching } from './matching/cluster.js'
 import { makePersistCluster } from './matching/persist.js'
 import { matchesRouter } from './routes/matches.js'
 import { revealRouter } from './routes/reveal.js'
+import { authRouter } from './routes/auth.js'
 
 const postNewSchema = z.object({
   type: z.enum(['question', 'note']),
@@ -64,6 +65,7 @@ export function createServer(): {
     res.json({ ok: true })
   })
 
+  app.use('/api/auth', authRouter())
   app.use('/api/matches', matchesRouter())
   app.use('/api/matches', revealRouter())
 
@@ -80,17 +82,21 @@ export function createServer(): {
         lng?: unknown
         code?: unknown
       }
+      console.log('[socket] handshake — has token:', !!auth.token, 'lat:', auth.lat, 'lng:', auth.lng, 'code:', auth.code)
       const token = auth.token
       if (!token) {
+        console.log('[socket] rejected: no token')
         next(new Error('unauthorized'))
         return
       }
 
       const { data, error } = await supabaseAdmin.auth.getUser(token)
       if (error || !data.user) {
+        console.log('[socket] rejected: auth failed', error?.message)
         next(new Error('unauthorized'))
         return
       }
+      console.log('[socket] authed user:', data.user.id)
       const user = data.user
 
       const xff = socket.handshake.headers['x-forwarded-for']
@@ -115,9 +121,11 @@ export function createServer(): {
       }
 
       if (!key) {
+        console.log('[socket] rejected: proximity unavailable')
         next(new Error('proximity unavailable'))
         return
       }
+      console.log('[socket] room key:', key)
 
       const sockData: SocketData = { userId: user.id, roomKey: key }
       socket.data = sockData
@@ -129,11 +137,13 @@ export function createServer(): {
 
   io.on('connection', async (socket: Socket) => {
     const { userId, roomKey: rk } = socket.data as SocketData
+    console.log('[socket] connected user', userId, 'room', rk)
     await createOrTouchRoom(redis, rk)
     await addMember(redis, rk, userId)
     await socket.join(rk)
 
     const feed = await getPublicFeed(redis, rk)
+    console.log('[socket] emitting room:state, feed size:', feed.length)
     socket.emit('room:state', { feed, meta: { state: 'live' } })
 
     socket.on('post:new', async (payload: unknown) => {
