@@ -4,6 +4,7 @@ import express from 'express'
 import cors from 'cors'
 import { Server, type Socket } from 'socket.io'
 import { z, ZodError } from 'zod'
+import Anthropic from '@anthropic-ai/sdk'
 import { env } from './env.js'
 import { supabaseAdmin } from './supabaseAdmin.js'
 import { redis } from './redis.js'
@@ -23,6 +24,10 @@ import {
   type PublicPost,
 } from './room/store.js'
 import { startLifecycleTicker } from './room/lifecycle.js'
+import { runMatching } from './matching/cluster.js'
+import { makePersistCluster } from './matching/persist.js'
+import { matchesRouter } from './routes/matches.js'
+import { revealRouter } from './routes/reveal.js'
 
 const postNewSchema = z.object({
   type: z.enum(['question', 'note']),
@@ -58,6 +63,9 @@ export function createServer(): {
   app.get('/healthz', (_req, res) => {
     res.json({ ok: true })
   })
+
+  app.use('/api/matches', matchesRouter())
+  app.use('/api/matches', revealRouter())
 
   const httpServer = http.createServer(app)
   const io = new Server(httpServer, {
@@ -216,12 +224,14 @@ export function createServer(): {
     })
   })
 
+  const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY })
+  const persistCluster = makePersistCluster(supabaseAdmin)
+
   const stopTicker = startLifecycleTicker({
     io,
     redis,
-    runMatching: async (roomKey: string) => {
-      // Task 6 will replace this with the real Claude clustering job.
-      console.log('runMatching stub called for', roomKey)
+    runMatching: async (rk: string) => {
+      await runMatching({ redis, anthropic, persistCluster }, rk)
     },
   })
 
