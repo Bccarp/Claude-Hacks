@@ -28,6 +28,7 @@ export default function Room() {
   const [phase, setPhase] = useState<RoomPhase>("connecting");
   const [posts, setPosts] = useState<PublicPost[]>([]);
   const [codeInput, setCodeInput] = useState("");
+  const [activeCode, setActiveCode] = useState<string | null>(null);
   const [socketErr, setSocketErr] = useState<string>("");
   const socketRef = useRef<Socket | null>(null);
 
@@ -85,6 +86,7 @@ export default function Room() {
       if (!token) return;
       const sock = connectRoom({ token, code: codeInput });
       socketRef.current = sock;
+      setActiveCode(codeInput);
       wireSocket(sock, {
         setPhase,
         setPosts,
@@ -92,6 +94,11 @@ export default function Room() {
         onDead: () => navigate("/matches", { replace: true }),
       });
     })();
+  }
+
+  function generateCode() {
+    const code = Math.floor(100_000 + Math.random() * 900_000).toString();
+    setCodeInput(code);
   }
 
   function handlePost(payload: { type: "question" | "note"; text: string }) {
@@ -120,8 +127,8 @@ export default function Room() {
         >
           <h1 className="text-2xl font-bold mb-2">Join with a code</h1>
           <p className="text-slate-300 mb-6 text-sm">
-            We can't use your location. Ask someone nearby to share a 6-digit
-            code and enter it below.
+            We can't use your location. Enter a 6-digit code someone nearby
+            shared, or generate a new one and share it.
           </p>
           <input
             value={codeInput}
@@ -131,8 +138,15 @@ export default function Room() {
             placeholder="123456"
             inputMode="numeric"
             maxLength={6}
-            className="w-full rounded-lg bg-slate-700 px-3 py-2 mb-4 outline-none text-center text-2xl tracking-widest font-mono focus:ring-2 focus:ring-sky-400"
+            className="w-full rounded-lg bg-slate-700 px-3 py-2 mb-3 outline-none text-center text-2xl tracking-widest font-mono focus:ring-2 focus:ring-sky-400"
           />
+          <button
+            type="button"
+            onClick={generateCode}
+            className="w-full rounded-lg bg-slate-700 hover:bg-slate-600 py-2 text-sm mb-4 transition"
+          >
+            Generate a new code
+          </button>
           <button
             type="submit"
             disabled={codeInput.length !== 6}
@@ -164,6 +178,22 @@ export default function Room() {
             Sign out
           </button>
         </header>
+
+        {activeCode && (
+          <div className="mb-4 rounded-lg bg-slate-800 px-3 py-2 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-slate-400 uppercase tracking-wide">
+                Room code
+              </p>
+              <p className="font-mono text-lg tracking-widest">
+                {activeCode}
+              </p>
+            </div>
+            <p className="text-xs text-slate-400 max-w-[60%] text-right">
+              Share this with people nearby to join the same room.
+            </p>
+          </div>
+        )}
 
         {socketErr && (
           <div className="mb-4 rounded-lg bg-rose-900/40 border border-rose-700 px-3 py-2 text-rose-200 text-sm">
